@@ -38,11 +38,12 @@
         <div class="bg-gray-800 p-6 rounded-2xl shadow-xl border border-gray-700/50">
             <h2 class="text-2xl font-semibold mb-4 flex items-center text-indigo-300 icon-container">
                 <i data-lucide="aperture" class="w-6 h-6 mr-3"></i>
-                1. Upload Fridge Photo
+                1. Upload Fridge Photo & Select Meal
             </h2>
             
-            <div class="flex flex-col sm:flex-row gap-4 items-center">
-                <div class="w-full sm:w-1/2">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+                <!-- File Input -->
+                <div class="md:col-span-2">
                     <label class="block text-gray-400 text-sm font-medium mb-1" for="fileInput">
                         Choose an image of your ingredients (fridge or pantry)
                     </label>
@@ -58,15 +59,34 @@
                                 hover:file:bg-indigo-600/50"
                     />
                 </div>
-                
-                <button
-                    id="scanButton"
-                    class="w-full sm:w-1/2 flex items-center justify-center px-4 py-3 border border-transparent text-base font-medium rounded-full shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-800 disabled:cursor-not-allowed transition duration-150"
-                >
-                    <i data-lucide="zap" id="scanIcon" class="w-5 h-5 mr-2"></i>
-                    <span id="scanText">Start Scan</span>
-                </button>
+
+                <!-- Meal Type Dropdown -->
+                <div class="md:col-span-1">
+                    <label class="block text-gray-400 text-sm font-medium mb-1" for="mealSelect">
+                        Meal Type Preference
+                    </label>
+                    <select
+                        id="mealSelect"
+                        class="w-full p-2.5 rounded-full text-sm bg-gray-700 border border-gray-600 text-gray-200 focus:ring-indigo-500 focus:border-indigo-500"
+                    >
+                        <option value="Any">Any Meal Type</option>
+                        <option value="Breakfast">Breakfast</option>
+                        <option value="Lunch">Lunch</option>
+                        <option value="Dinner">Dinner</option>
+                        <option value="Snack">Snack</option>
+                    </select>
+                </div>
             </div>
+
+            <!-- Scan Button -->
+            <button
+                id="scanButton"
+                class="w-full flex items-center justify-center mt-4 px-4 py-3 border border-transparent text-base font-medium rounded-full shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-800 disabled:cursor-not-allowed transition duration-150"
+            >
+                <i data-lucide="zap" id="scanIcon" class="w-5 h-5 mr-2"></i>
+                <span id="scanText">Start Scan</span>
+            </button>
+
 
             <div id="loadingIndicator" class="flex items-center space-x-3 text-sm font-medium p-4 bg-white/5 border border-indigo-700/50 rounded-xl shadow-lg mt-4">
                 <i data-lucide="aperture" id="loadIcon" class="w-5 h-5 text-gray-400"></i>
@@ -126,6 +146,7 @@
     <script>
         const DOM = {
             fileInput: document.getElementById('fileInput'),
+            mealSelect: document.getElementById('mealSelect'), // NEW: Meal selection dropdown
             scanButton: document.getElementById('scanButton'),
             scanIcon: document.getElementById('scanIcon'),
             scanText: document.getElementById('scanText'),
@@ -151,6 +172,7 @@
             ingredients: [],
             recipes: [],
             selectedRecipe: null,
+            mealType: 'Any', // NEW: Default meal type
             apiUrl: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=',
             // --- INSTRUCTION: Your Gemini API key is now embedded below. ---
             apiKey: "AIzaSyC5SRFpahhhjIVDrClGHkrxsa56aG8Gmrw", 
@@ -363,8 +385,10 @@
                 }
                 
                 const ingredientsList = availableIngredients.join(', ');
-                // FIX APPLIED: Removed unnecessary backslash before backtick
-                const userQuery = `Based on the following available ingredients: ${ingredientsList}. Generate 3 unique and creative recipe ideas. For each recipe, provide the name, a short description, and a complete list of all ingredients required (not just the available ones).`;
+                const mealPreference = STATE.mealType !== 'Any' ? ` that is suitable for a ${STATE.mealType} meal` : '';
+                
+                // UPDATED QUERY: Includes meal preference
+                const userQuery = `Based on the following available ingredients: ${ingredientsList}. Generate 3 unique and creative recipe ideas${mealPreference}. For each recipe, provide the name, a short description, and a complete list of all ingredients required (not just the available ones).`;
 
                 const payload = {
                     contents: [{ parts: [{ text: userQuery }] }],
@@ -547,7 +571,17 @@
             }
         };
 
+        const handleMealChange = (event) => {
+            STATE.mealType = event.target.value;
+            // Optionally, clear recipes if the user changes the meal type after a scan
+            STATE.recipes = [];
+            STATE.selectedRecipe = null;
+            renderRecipes();
+            renderRecipeDetails();
+        };
+
         DOM.fileInput.addEventListener('change', handleFileChange);
+        DOM.mealSelect.addEventListener('change', handleMealChange);
         DOM.scanButton.addEventListener('click', scanFridge);
         
         // Initialize Lucide icons on load
