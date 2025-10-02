@@ -356,6 +356,11 @@
             updateError(null);
 
             try {
+                // ADDED KEY CHECK: Ensure API Key is present before calling
+                if (!STATE.apiKey || STATE.apiKey === "") {
+                    throw new Error("API Key is missing. Please ensure your environment is configured correctly.");
+                }
+                
                 const ingredientsList = availableIngredients.join(', ');
                 // FIX APPLIED: Removed unnecessary backslash before backtick
                 const userQuery = `Based on the following available ingredients: ${ingredientsList}. Generate 3 unique and creative recipe ideas. For each recipe, provide the name, a short description, and a complete list of all ingredients required (not just the available ones).`;
@@ -399,7 +404,7 @@
                 }
 
                 if (!response || !response.ok) {
-                    throw new Error("Failed to communicate with the Gemini API or received an empty response.");
+                    throw new Error("Failed to communicate with the Gemini API or received an empty response. Check API key validity.");
                 }
 
                 const result = await response.json();
@@ -432,6 +437,12 @@
 
             if (!file) {
                 updateError("Please upload an image first.");
+                return;
+            }
+
+            // ADDED KEY CHECK: Ensure API Key is present before calling
+            if (!STATE.apiKey || STATE.apiKey === "") {
+                updateError("API Key is missing. Please ensure your environment is configured correctly.");
                 return;
             }
 
@@ -488,7 +499,7 @@
                 }
                 
                 if (!response || !response.ok) {
-                    throw new Error("Failed to communicate with the Gemini API or received an empty response.");
+                    throw new Error("Failed to communicate with the Gemini API or received an empty response. Check API key validity.");
                 }
 
                 const result = await response.json();
