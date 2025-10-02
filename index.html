@@ -293,12 +293,29 @@
 
             DOM.detailsContainer.classList.remove('hidden');
 
+            // Define common staples to be ignored in the "missing" calculation
+            const commonStaples = [
+                'salt', 'pepper', 'water', 'oil', 'olive oil', 'vegetable oil', 
+                'butter', 'sugar', 'flour', 'garlic powder', 'onion powder', 
+                'vinegar', 'baking powder', 'baking soda',
+                // EXPANDED PANTRY STAPLES TO BE IGNORED
+                'milk', 'plant-based milk', 'dairy-free yogurt', 'yogurt', 'chia seeds', 
+                'hemp seeds', 'maple syrup', 'honey', 'cinnamon', 'nutmeg', 'vanilla extract', 
+                'basic spices', 'spices', 'herbs', 'fresh herbs'
+            ];
+
             const availableSet = new Set(STATE.ingredients.map(i => i.toLowerCase().trim()));
             
             const missingIngredients = recipe.requiredIngredients
                 .filter(requiredItem => {
                     const lowerRequired = requiredItem.toLowerCase().trim();
-                    // Check if a similar item exists in the available set
+                    
+                    // 1. Check if the item is a common staple (and thus assumed available)
+                    if (commonStaples.some(staple => lowerRequired.includes(staple))) {
+                        return false;
+                    }
+
+                    // 2. Check if the item (or something similar) is in the available set
                     return !Array.from(availableSet).some(availableItem => lowerRequired.includes(availableItem) || availableItem.includes(lowerRequired));
                 })
                 .map(item => item.charAt(0).toUpperCase() + item.slice(1));
@@ -321,6 +338,9 @@
                 detailHTML += `<ul class="list-disc list-inside space-y-1 text-gray-200">
                                 ${missingIngredients.map(item => `<li class="text-red-100 font-medium">${item}</li>`).join('')}
                                 </ul>`;
+                detailHTML += `<p class="text-gray-400 text-sm mt-3 italic">
+                                    (Excludes many common staples like oil, spices, and milk.)
+                                </p>`;
             } else {
                 detailHTML += `<p class="text-emerald-300 font-medium">You have everything! Get cooking!</p>`;
             }
@@ -405,8 +425,11 @@
                 // ADDED: Calorie preference query part
                 const caloriePreference = STATE.maxCalories ? ` and must not exceed ${STATE.maxCalories} calories per serving` : '';
                 
-                // UPDATED QUERY: Includes meal and calorie preference
-                const userQuery = `Based on the following available ingredients: ${ingredientsList}. Generate 3 unique and creative recipe ideas${mealPreference}${caloriePreference}. For each recipe, provide the name, a short description, and a complete list of all ingredients required (not just the available ones).`;
+                // UPDATED QUERY: Tighter constraint on missing items and stronger exclusion of staples
+                const userQuery = `Based on the following available ingredients: ${ingredientsList}. Generate 3 unique and creative recipe ideas${mealPreference}${caloriePreference}. 
+                **The recipes MUST only require ingredients that are in the available list.** At the absolute maximum, one major non-staple item can be missing, but prioritize recipes where 0 items are missing. 
+                **Crucially, exclude common kitchen staples (salt, pepper, oil, basic spices, flour, sugar, maple syrup, milk, yogurt, seeds, etc.) from the 'missing' determination.**
+                For each recipe, provide the name, a short description, and a complete list of all ingredients required (not just the available ones).`;
 
                 const payload = {
                     contents: [{ parts: [{ text: userQuery }] }],
@@ -466,7 +489,6 @@
 
             } catch (e) {
                 console.error("Recipe generation error:", e);
-                // FIX APPLIED: Removed unnecessary backslash before backtick
                 updateError(`Could not generate recipes: ${e.message}`);
                 updateLoadingIndicator(0);
             }
@@ -560,7 +582,6 @@
 
             } catch (e) {
                 console.error("Scan error:", e);
-                // FIX APPLIED: Removed unnecessary backslash before backtick
                 updateError(`Could not scan fridge: ${e.message}`);
                 updateLoadingIndicator(0);
             }
