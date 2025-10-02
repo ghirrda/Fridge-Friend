@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fridge Friend Standalone</title>
+    <!-- PWA / Mobile Enhancements for a native feel -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#111827"> <!-- Sets status bar color to match the dark background -->
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Lucide Icons as a simple SVG library -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Custom styles for the app */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .icon-container svg {
+            stroke-width: 2.5;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gray-900 p-4 sm:p-8 flex justify-center text-white">
+    <div id="app" class="w-full max-w-5xl">
+        
+        <header class="text-center mb-10">
+            <h1 class="text-4xl sm:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-500">
+                Fridge Friend
+            </h1>
+            <p class="mt-2 text-lg text-gray-400">
+                Scan. Generate. Cook. Stop wasting food!
+            </p>
+        </header>
+
+        <!-- --- Input Section --- -->
+        <div class="bg-gray-800 p-6 rounded-2xl shadow-xl border border-gray-700/50">
+            <h2 class="text-2xl font-semibold mb-4 flex items-center text-indigo-300 icon-container">
+                <i data-lucide="aperture" class="w-6 h-6 mr-3"></i>
+                1. Upload Fridge Photo
+            </h2>
+            
+            <div class="flex flex-col sm:flex-row gap-4 items-center">
+                <div class="w-full sm:w-1/2">
+                    <label class="block text-gray-400 text-sm font-medium mb-1" for="fileInput">
+                        Choose an image of your ingredients (fridge or pantry)
+                    </label>
+                    <input
+                        type="file"
+                        id="fileInput"
+                        accept="image/*"
+                        class="block w-full text-sm text-gray-400
+                                file:mr-4 file:py-2 file:px-4
+                                file:rounded-full file:border-0
+                                file:text-sm file:font-semibold
+                                file:bg-indigo-700/50 file:text-indigo-100
+                                hover:file:bg-indigo-600/50"
+                    />
+                </div>
+                
+                <button
+                    id="scanButton"
+                    class="w-full sm:w-1/2 flex items-center justify-center px-4 py-3 border border-transparent text-base font-medium rounded-full shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-800 disabled:cursor-not-allowed transition duration-150"
+                >
+                    <i data-lucide="zap" id="scanIcon" class="w-5 h-5 mr-2"></i>
+                    <span id="scanText">Start Scan</span>
+                </button>
+            </div>
+
+            <div id="loadingIndicator" class="flex items-center space-x-3 text-sm font-medium p-4 bg-white/5 border border-indigo-700/50 rounded-xl shadow-lg mt-4">
+                <i data-lucide="aperture" id="loadIcon" class="w-5 h-5 text-gray-400"></i>
+                <p id="loadMessage" class="transition-colors duration-500 text-gray-400">Ready to scan.</p>
+            </div>
+            
+            <div id="imagePreviewContainer" class="mt-6 hidden">
+                <h3 class="text-gray-300 text-sm mb-2">Image Preview:</h3>
+                <img 
+                    id="imagePreview"
+                    alt="Fridge content preview" 
+                    class="max-h-60 w-auto rounded-xl object-contain shadow-md border border-gray-700" 
+                    onerror="this.src = 'https://placehold.co/200x150/1f2937/9ca3af?text=Image+Load+Failed'"
+                />
+            </div>
+        </div>
+
+        <!-- --- Results Section --- -->
+        <div id="resultsSection" class="mt-8 hidden">
+            
+            <div id="errorBox" class="p-4 bg-red-800/50 text-red-300 rounded-xl mb-6 border border-red-700 hidden">
+                <p class="font-bold">Error:</p>
+                <p id="errorMessage"></p>
+            </div>
+            
+            <!-- Identified Ingredients List -->
+            <div id="ingredientsContainer" class="mb-8 p-6 bg-gray-800 rounded-2xl border border-gray-700/50 hidden">
+                <h2 class="text-2xl font-semibold mb-4 flex items-center text-emerald-300 icon-container">
+                    <i data-lucide="shopping-cart" class="w-6 h-6 mr-3"></i>
+                    Your Available Ingredients (<span id="ingredientCount">0</span>)
+                </h2>
+                <div id="ingredientsList" class="flex flex-wrap gap-2">
+                    <!-- Ingredients tags go here -->
+                </div>
+                <p class="text-gray-400 text-sm mt-4 italic">
+                    (Identified by the AI. Review this list before proceeding!)
+                </p>
+            </div>
+
+            <!-- Recipe Suggestions -->
+            <div id="recipesContainer" class="mb-8 hidden">
+                <h2 class="text-2xl font-semibold mb-4 text-purple-300">
+                    2. Recipe Suggestions
+                </h2>
+                <div id="recipesGrid" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <!-- Recipe cards go here -->
+                </div>
+            </div>
+            
+            <!-- Missing Items & Recipe Details -->
+            <div id="detailsContainer" class="p-6 bg-gray-700 rounded-2xl shadow-2xl border border-purple-600 hidden">
+                <!-- Recipe details go here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const DOM = {
+            fileInput: document.getElementById('fileInput'),
+            scanButton: document.getElementById('scanButton'),
+            scanIcon: document.getElementById('scanIcon'),
+            scanText: document.getElementById('scanText'),
+            imagePreview: document.getElementById('imagePreview'),
+            imagePreviewContainer: document.getElementById('imagePreviewContainer'),
+            resultsSection: document.getElementById('resultsSection'),
+            errorBox: document.getElementById('errorBox'),
+            errorMessage: document.getElementById('errorMessage'),
+            loadingIndicator: document.getElementById('loadingIndicator'),
+            loadIcon: document.getElementById('loadIcon'),
+            loadMessage: document.getElementById('loadMessage'),
+            ingredientsContainer: document.getElementById('ingredientsContainer'),
+            ingredientCount: document.getElementById('ingredientCount'),
+            ingredientsList: document.getElementById('ingredientsList'),
+            recipesContainer: document.getElementById('recipesContainer'),
+            recipesGrid: document.getElementById('recipesGrid'),
+            detailsContainer: document.getElementById('detailsContainer'),
+        };
+
+        const STATE = {
+            imageFile: null,
+            loadingStage: 0, // 0: Idle, 1: Scanning, 2: Generating, 3: Complete
+            ingredients: [],
+            recipes: [],
+            selectedRecipe: null,
+            apiUrl: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=',
+            apiKey: "",
+        };
+
+        const messages = [
+            { icon: 'aperture', color: 'text-gray-400', message: 'Ready to scan.' },
+            { icon: 'loader-2', color: 'text-indigo-400', message: '1/2: Scanning fridge contents...', spin: true },
+            { icon: 'loader-2', color: 'text-purple-400', message: '2/2: Generating recipe ideas...', spin: true },
+            { icon: 'zap', color: 'text-emerald-400', message: 'Complete! Recipes are ready.', spin: false }
+        ];
+
+        // --- Utility Functions ---
+
+        /** Converts a File object to a Base64 string for the API call */
+        const fileToBase64 = (file) => {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result.split(',')[1]);
+                reader.onerror = (error) => reject(error);
+            });
+        };
+
+        /** Updates the UI based on the current loading stage */
+        const updateLoadingIndicator = (stage) => {
+            STATE.loadingStage = stage;
+            const status = messages[stage];
+            
+            // Icon
+            const iconHTML = lucide.createIcons[status.icon] ? lucide.createIcons[status.icon]() : '';
+            DOM.loadIcon.innerHTML = iconHTML;
+            DOM.loadIcon.className = DOM.loadIcon.className.split(' ').filter(c => !c.startsWith('text-')).join(' ');
+            DOM.loadIcon.classList.add(status.color);
+            if (status.spin) {
+                DOM.loadIcon.classList.add('animate-spin');
+            } else {
+                DOM.loadIcon.classList.remove('animate-spin');
+            }
+            
+            // Message
+            DOM.loadMessage.textContent = status.message;
+            DOM.loadMessage.className = DOM.loadMessage.className.split(' ').filter(c => !c.startsWith('text-')).join(' ');
+            DOM.loadMessage.classList.add(status.color);
+
+            // Button state
+            const isDisabled = stage === 1 || stage === 2;
+            DOM.scanButton.disabled = isDisabled;
+            DOM.scanText.textContent = stage === 1 ? 'Scanning...' : (stage === 2 ? 'Generating Recipes...' : 'Start Scan');
+            
+            // Icon on button (update dynamically)
+            const buttonIconName = isDisabled ? 'loader-2' : 'zap';
+            const buttonIconHTML = lucide.createIcons[buttonIconName] ? lucide.createIcons[buttonIconName]() : '';
+            DOM.scanIcon.innerHTML = buttonIconHTML;
+            if (isDisabled) {
+                DOM.scanIcon.classList.add('animate-spin');
+            } else {
+                DOM.scanIcon.classList.remove('animate-spin');
+            }
+            
+            lucide.createIcons(); // Re-render icons after changing content
+        };
+
+        /** Displays or hides the main error message */
+        const updateError = (message) => {
+            if (message) {
+                DOM.errorMessage.textContent = message;
+                DOM.errorBox.classList.remove('hidden');
+                DOM.resultsSection.classList.remove('hidden');
+            } else {
+                DOM.errorBox.classList.add('hidden');
+                DOM.errorMessage.textContent = '';
+            }
+        };
+
+        /** Renders the available ingredients list */
+        const renderIngredients = () => {
+            DOM.ingredientsList.innerHTML = '';
+            if (STATE.ingredients.length === 0) {
+                DOM.ingredientsContainer.classList.add('hidden');
+                return;
+            }
+
+            DOM.ingredientsContainer.classList.remove('hidden');
+            DOM.ingredientCount.textContent = STATE.ingredients.length;
+
+            STATE.ingredients.forEach(item => {
+                const span = document.createElement('span');
+                span.className = "px-3 py-1 bg-emerald-600/30 text-emerald-200 text-sm rounded-full font-medium";
+                span.textContent = item;
+                DOM.ingredientsList.appendChild(span);
+            });
+        };
+
+        /** Calculates and renders missing items for the selected recipe */
+        const renderRecipeDetails = () => {
+            const recipe = STATE.selectedRecipe;
+            if (!recipe) {
+                DOM.detailsContainer.classList.add('hidden');
+                return;
+            }
+
+            DOM.detailsContainer.classList.remove('hidden');
+
+            const availableSet = new Set(STATE.ingredients.map(i => i.toLowerCase().trim()));
+            
+            const missingIngredients = recipe.requiredIngredients
+                .filter(requiredItem => {
+                    const lowerRequired = requiredItem.toLowerCase().trim();
+                    // Check if a similar item exists in the available set
+                    return !Array.from(availableSet).some(availableItem => lowerRequired.includes(availableItem) || availableItem.includes(lowerRequired));
+                })
+                .map(item => item.charAt(0).toUpperCase() + item.slice(1));
+
+            // Build HTML content
+            let detailHTML = `
+                <h2 class="text-3xl font-bold mb-4 text-purple-200">${recipe.recipeName}</h2>
+                <p class="text-lg text-gray-300 mb-6">${recipe.description}</p>
+                
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-8">
+                    
+                    <!-- Missing Items List -->
+                    <div class="p-4 border border-red-500/50 rounded-xl bg-red-900/40">
+                        <h3 class="text-xl font-semibold text-red-300 flex items-center mb-3 icon-container">
+                            <i data-lucide="shopping-cart" class="w-5 h-5 mr-2"></i>
+                            Missing Items (${missingIngredients.length})
+                        </h3>`;
+            
+            if (missingIngredients.length > 0) {
+                detailHTML += `<ul class="list-disc list-inside space-y-1 text-gray-200">
+                                ${missingIngredients.map(item => `<li class="text-red-100 font-medium">${item}</li>`).join('')}
+                                </ul>`;
+            } else {
+                detailHTML += `<p class="text-emerald-300 font-medium">You have everything! Get cooking!</p>`;
+            }
+
+            detailHTML += `</div>
+                    
+                    <!-- All Required Ingredients -->
+                    <div class="p-4 border border-gray-600 rounded-xl bg-gray-800/50">
+                        <h3 class="text-xl font-semibold text-indigo-300 flex items-center mb-3 icon-container">
+                            <i data-lucide="chef-hat" class="w-5 h-5 mr-2"></i>
+                            Full Ingredient List
+                        </h3>
+                        <ul class="list-disc list-inside space-y-1 text-gray-300">
+                            ${recipe.requiredIngredients.map(item => {
+                                const isMissing = missingIngredients.includes(item.charAt(0).toUpperCase() + item.slice(1));
+                                return `<li>
+                                            ${item} 
+                                            ${isMissing ? `<span class="ml-2 text-red-400 text-xs font-semibold">(Missing)</span>` : ''}
+                                        </li>`;
+                            }).join('')}
+                        </ul>
+                    </div>
+                </div>`;
+
+            DOM.detailsContainer.innerHTML = detailHTML;
+            lucide.createIcons();
+        };
+
+        /** Renders the recipe suggestion cards */
+        const renderRecipes = () => {
+            DOM.recipesGrid.innerHTML = '';
+            if (STATE.recipes.length === 0) {
+                DOM.recipesContainer.classList.add('hidden');
+                return;
+            }
+
+            DOM.recipesContainer.classList.remove('hidden');
+
+            STATE.recipes.forEach(recipe => {
+                const isSelected = STATE.selectedRecipe?.recipeName === recipe.recipeName;
+                
+                const card = document.createElement('div');
+                card.className = `p-5 rounded-xl cursor-pointer transition-all duration-300 transform hover:scale-[1.02] 
+                                ${isSelected
+                                    ? 'bg-indigo-600 ring-4 ring-indigo-400 shadow-2xl text-white' 
+                                    : 'bg-white/10 hover:bg-white/20 text-gray-100 ring-2 ring-transparent'
+                                }`;
+                card.onclick = () => {
+                    STATE.selectedRecipe = recipe;
+                    renderRecipes(); // Re-render to update selection style
+                    renderRecipeDetails();
+                };
+
+                card.innerHTML = `
+                    <h3 class="text-xl font-bold flex items-center mb-2 icon-container">
+                        <i data-lucide="chef-hat" class="w-5 h-5 mr-2"></i>
+                        ${recipe.recipeName}
+                    </h3>
+                    <p class="text-sm ${isSelected ? 'text-indigo-100' : 'text-gray-300'}">
+                        ${recipe.description}
+                    </p>
+                `;
+                DOM.recipesGrid.appendChild(card);
+            });
+            lucide.createIcons();
+        };
+
+        // --- Core Logic: Step 2 - Generate Recipes ---
+
+        const generateRecipes = async (availableIngredients) => {
+            updateLoadingIndicator(2);
+            updateError(null);
+
+            try {
+                const ingredientsList = availableIngredients.join(', ');
+                // FIX APPLIED: Removed unnecessary backslash before backtick
+                const userQuery = `Based on the following available ingredients: ${ingredientsList}. Generate 3 unique and creative recipe ideas. For each recipe, provide the name, a short description, and a complete list of all ingredients required (not just the available ones).`;
+
+                const payload = {
+                    contents: [{ parts: [{ text: userQuery }] }],
+                    generationConfig: {
+                        responseMimeType: "application/json",
+                        responseSchema: {
+                            type: "ARRAY",
+                            items: {
+                                type: "OBJECT",
+                                properties: {
+                                    "recipeName": { "type": "STRING" },
+                                    "description": { "type": "STRING" },
+                                    "requiredIngredients": {
+                                        "type": "ARRAY",
+                                        "items": { "type": "STRING" },
+                                        "description": "A comprehensive list of ALL ingredients needed for the recipe."
+                                    }
+                                },
+                                required: ["recipeName", "description", "requiredIngredients"]
+                            }
+                        }
+                    }
+                };
+                
+                let response;
+                for (let i = 0; i < 3; i++) {
+                    try {
+                        response = await fetch(STATE.apiUrl + STATE.apiKey, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+                        if (response.ok) break;
+                    } catch (e) {
+                        console.error('Fetch attempt failed', e);
+                        if (i < 2) await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
+                    }
+                }
+
+                if (!response || !response.ok) {
+                    throw new Error("Failed to communicate with the Gemini API or received an empty response.");
+                }
+
+                const result = await response.json();
+                const textContent = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+                if (!textContent) {
+                     throw new Error("API response was empty or malformed during recipe generation.");
+                }
+
+                STATE.recipes = JSON.parse(textContent);
+                STATE.selectedRecipe = null;
+                updateLoadingIndicator(3);
+                DOM.resultsSection.classList.remove('hidden');
+                renderRecipes();
+                renderRecipeDetails(); // Renders nothing, but clears previous details
+
+            } catch (e) {
+                console.error("Recipe generation error:", e);
+                // FIX APPLIED: Removed unnecessary backslash before backtick
+                updateError(`Could not generate recipes: ${e.message}`);
+                updateLoadingIndicator(0);
+            }
+        };
+
+
+        // --- Core Logic: Step 1 - Scan Fridge Image ---
+
+        const scanFridge = async () => {
+            const file = STATE.imageFile;
+
+            if (!file) {
+                updateError("Please upload an image first.");
+                return;
+            }
+
+            updateLoadingIndicator(1);
+            updateError(null);
+            STATE.ingredients = [];
+            STATE.recipes = [];
+            STATE.selectedRecipe = null;
+            
+            try {
+                const base64Data = await fileToBase64(file);
+                const userQuery = "Analyze this image of a fridge/pantry. Identify all the main food items, ingredients, and produce you see. List them in a JSON array. Be specific (e.g., 'half a head of iceberg lettuce', 'one jar of marinara sauce').";
+
+                const payload = {
+                    contents: [
+                        {
+                            role: "user",
+                            parts: [
+                                { text: userQuery },
+                                {
+                                    inlineData: {
+                                        mimeType: file.type,
+                                        data: base64Data
+                                    }
+                                }
+                            ]
+                        }
+                    ],
+                    generationConfig: {
+                        responseMimeType: "application/json",
+                        responseSchema: {
+                            type: "ARRAY",
+                            items: {
+                                type: "STRING",
+                                description: "A single, specific ingredient found in the image."
+                            }
+                        }
+                    }
+                };
+                
+                let response;
+                for (let i = 0; i < 3; i++) {
+                    try {
+                        response = await fetch(STATE.apiUrl + STATE.apiKey, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+                        if (response.ok) break;
+                    } catch (e) {
+                        console.error('Fetch attempt failed', e);
+                        if (i < 2) await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
+                    }
+                }
+                
+                if (!response || !response.ok) {
+                    throw new Error("Failed to communicate with the Gemini API or received an empty response.");
+                }
+
+                const result = await response.json();
+                const textContent = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+                if (!textContent) {
+                     throw new Error("API response was empty or malformed during ingredient scanning.");
+                }
+
+                STATE.ingredients = JSON.parse(textContent);
+                renderIngredients();
+                
+                // Move to step 2: Generate recipes
+                await generateRecipes(STATE.ingredients);
+
+            } catch (e) {
+                console.error("Scan error:", e);
+                // FIX APPLIED: Removed unnecessary backslash before backtick
+                updateError(`Could not scan fridge: ${e.message}`);
+                updateLoadingIndicator(0);
+            }
+        };
+
+        // --- Event Listeners and Initialization ---
+
+        const handleFileChange = (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                STATE.imageFile = file;
+                const imageUrl = URL.createObjectURL(file);
+                DOM.imagePreview.src = imageUrl;
+                DOM.imagePreviewContainer.classList.remove('hidden');
+
+                // Reset state
+                STATE.ingredients = [];
+                STATE.recipes = [];
+                STATE.selectedRecipe = null;
+                updateError(null);
+                updateLoadingIndicator(0);
+                DOM.resultsSection.classList.add('hidden');
+                DOM.ingredientsContainer.classList.add('hidden');
+                DOM.recipesContainer.classList.add('hidden');
+                DOM.detailsContainer.classList.add('hidden');
+            }
+        };
+
+        DOM.fileInput.addEventListener('change', handleFileChange);
+        DOM.scanButton.addEventListener('click', scanFridge);
+        
+        // Initialize Lucide icons on load
+        window.onload = () => {
+             lucide.createIcons();
+             // Check for API key in the environment (Canvas specific)
+             if (typeof __api_key !== 'undefined') {
+                STATE.apiKey = __api_key;
+             }
+        };
+
+    </script>
+</body>
+</html>
