@@ -38,11 +38,11 @@
         <div class="bg-gray-800 p-6 rounded-2xl shadow-xl border border-gray-700/50">
             <h2 class="text-2xl font-semibold mb-4 flex items-center text-indigo-300 icon-container">
                 <i data-lucide="aperture" class="w-6 h-6 mr-3"></i>
-                1. Upload Fridge Photo & Select Meal
+                1. Upload Fridge Photo & Select Preferences
             </h2>
             
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
-                <!-- File Input -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+                <!-- File Input (Now spans 2 columns on medium screens) -->
                 <div class="md:col-span-2">
                     <label class="block text-gray-400 text-sm font-medium mb-1" for="fileInput">
                         Choose an image of your ingredients (fridge or pantry)
@@ -61,7 +61,7 @@
                 </div>
 
                 <!-- Meal Type Dropdown -->
-                <div class="md:col-span-1">
+                <div>
                     <label class="block text-gray-400 text-sm font-medium mb-1" for="mealSelect">
                         Meal Type Preference
                     </label>
@@ -75,6 +75,20 @@
                         <option value="Dinner">Dinner</option>
                         <option value="Snack">Snack</option>
                     </select>
+                </div>
+
+                <!-- NEW: Max Calorie Input -->
+                <div>
+                    <label class="block text-gray-400 text-sm font-medium mb-1" for="maxCalorieInput">
+                        Max Calories (Optional)
+                    </label>
+                    <input
+                        type="number"
+                        id="maxCalorieInput"
+                        min="100"
+                        placeholder="e.g., 500"
+                        class="w-full p-2.5 rounded-full text-sm bg-gray-700 border border-gray-600 text-gray-200 focus:ring-indigo-500 focus:border-indigo-500 placeholder-gray-400"
+                    />
                 </div>
             </div>
 
@@ -146,7 +160,8 @@
     <script>
         const DOM = {
             fileInput: document.getElementById('fileInput'),
-            mealSelect: document.getElementById('mealSelect'), // NEW: Meal selection dropdown
+            mealSelect: document.getElementById('mealSelect'),
+            maxCalorieInput: document.getElementById('maxCalorieInput'), // ADDED: Calorie input field
             scanButton: document.getElementById('scanButton'),
             scanIcon: document.getElementById('scanIcon'),
             scanText: document.getElementById('scanText'),
@@ -172,7 +187,8 @@
             ingredients: [],
             recipes: [],
             selectedRecipe: null,
-            mealType: 'Any', // NEW: Default meal type
+            mealType: 'Any',
+            maxCalories: null, // ADDED: Stores the maximum calorie preference (number or null)
             apiUrl: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=',
             // --- INSTRUCTION: Your Gemini API key is now embedded below. ---
             apiKey: "AIzaSyC5SRFpahhhjIVDrClGHkrxsa56aG8Gmrw", 
@@ -386,9 +402,11 @@
                 
                 const ingredientsList = availableIngredients.join(', ');
                 const mealPreference = STATE.mealType !== 'Any' ? ` that is suitable for a ${STATE.mealType} meal` : '';
+                // ADDED: Calorie preference query part
+                const caloriePreference = STATE.maxCalories ? ` and must not exceed ${STATE.maxCalories} calories per serving` : '';
                 
-                // UPDATED QUERY: Includes meal preference
-                const userQuery = `Based on the following available ingredients: ${ingredientsList}. Generate 3 unique and creative recipe ideas${mealPreference}. For each recipe, provide the name, a short description, and a complete list of all ingredients required (not just the available ones).`;
+                // UPDATED QUERY: Includes meal and calorie preference
+                const userQuery = `Based on the following available ingredients: ${ingredientsList}. Generate 3 unique and creative recipe ideas${mealPreference}${caloriePreference}. For each recipe, provide the name, a short description, and a complete list of all ingredients required (not just the available ones).`;
 
                 const payload = {
                     contents: [{ parts: [{ text: userQuery }] }],
@@ -580,8 +598,22 @@
             renderRecipeDetails();
         };
 
+        // NEW: Handler for calorie input
+        const handleCalorieChange = (event) => {
+            // Ensure the value is a number, or null if empty/invalid
+            const value = parseInt(event.target.value, 10);
+            STATE.maxCalories = isNaN(value) || value <= 0 ? null : value;
+            
+            // Reset results on preference change
+            STATE.recipes = [];
+            STATE.selectedRecipe = null;
+            renderRecipes();
+            renderRecipeDetails();
+        };
+
         DOM.fileInput.addEventListener('change', handleFileChange);
         DOM.mealSelect.addEventListener('change', handleMealChange);
+        DOM.maxCalorieInput.addEventListener('input', handleCalorieChange); // ADDED: Listener for calorie input
         DOM.scanButton.addEventListener('click', scanFridge);
         
         // Initialize Lucide icons on load
