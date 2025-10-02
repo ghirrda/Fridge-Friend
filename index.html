@@ -152,7 +152,8 @@
             recipes: [],
             selectedRecipe: null,
             apiUrl: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=',
-            apiKey: "",
+            // --- INSTRUCTION: Your Gemini API key is now embedded below. ---
+            apiKey: "AIzaSyC5SRFpahhhjIVDrClGHkrxsa56aG8Gmrw", 
         };
 
         const messages = [
@@ -442,7 +443,7 @@
 
             // ADDED KEY CHECK: Ensure API Key is present before calling
             if (!STATE.apiKey || STATE.apiKey === "") {
-                updateError("API Key is missing. Please ensure your environment is configured correctly.");
+                updateError("API Key is missing. Please ensure your environment is configured correctly. If running standalone, you must hardcode your key in the script.");
                 return;
             }
 
@@ -552,10 +553,6 @@
         // Initialize Lucide icons on load
         window.onload = () => {
              lucide.createIcons();
-             // Check for API key in the environment (Canvas specific)
-             if (typeof __api_key !== 'undefined') {
-                STATE.apiKey = __api_key;
-             }
         };
 
     </script>
