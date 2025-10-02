@@ -294,14 +294,28 @@
             DOM.detailsContainer.classList.remove('hidden');
 
             // Define common staples to be ignored in the "missing" calculation
+            // *** CRITICAL UPDATE: EXPANDED LIST TO COVER COMMON AI ASSUMPTIONS ***
             const commonStaples = [
-                'salt', 'pepper', 'water', 'oil', 'olive oil', 'vegetable oil', 
-                'butter', 'sugar', 'flour', 'garlic powder', 'onion powder', 
-                'vinegar', 'baking powder', 'baking soda',
-                // EXPANDED PANTRY STAPLES TO BE IGNORED
-                'milk', 'plant-based milk', 'dairy-free yogurt', 'yogurt', 'chia seeds', 
-                'hemp seeds', 'maple syrup', 'honey', 'cinnamon', 'nutmeg', 'vanilla extract', 
-                'basic spices', 'spices', 'herbs', 'fresh herbs'
+                // Very Common Staples (Salt, Oil, Water)
+                'salt', 'pepper', 'black pepper', 'water', 'oil', 'olive oil', 'vegetable oil', 'canola oil',
+                'butter', 'ghee', 'margarine',
+                
+                // Baking/Sweeteners
+                'sugar', 'flour', 'baking powder', 'baking soda', 'vanilla extract', 
+                'maple syrup', 'honey', 'agave nectar', 'syrup',
+
+                // Dairy/Dairy Alternatives (Assuming user has at least one type)
+                'milk', 'plant-based milk', 'dairy-free yogurt', 'yogurt', 'cream', 'sour cream',
+                
+                // Seasonings/Condiments (Often assumed if not explicitly seen)
+                'garlic', 'garlic powder', 'fresh minced garlic', 'onion', 'onion powder', 
+                'vinegar', 'soy sauce', 'tamari', 'hoisin sauce', 'mustard', 
+                'lemon', 'lemon juice', 'lime', 'lime juice', 'ginger', 'fresh ginger', 
+                'chili flakes', 'hot sauce', 'broth', 'stock',
+                
+                // Seeds/Nuts/Dry Goods
+                'chia seeds', 'hemp seeds', 'sesame seeds', 'flax seeds', 'nuts', 'seeds',
+                'basic spices', 'spices', 'herbs', 'fresh herbs', 'dried herbs'
             ];
 
             const availableSet = new Set(STATE.ingredients.map(i => i.toLowerCase().trim()));
@@ -319,13 +333,23 @@
                     return !Array.from(availableSet).some(availableItem => lowerRequired.includes(availableItem) || availableItem.includes(lowerRequired));
                 })
                 .map(item => item.charAt(0).toUpperCase() + item.slice(1));
+            
+            // Console log for debugging the exclusion process
+            const excludedItems = recipe.requiredIngredients
+                .filter(requiredItem => {
+                    const lowerRequired = requiredItem.toLowerCase().trim();
+                    return commonStaples.some(staple => lowerRequired.includes(staple)) && !availableSet.has(lowerRequired);
+                });
+            console.log("Excluded Staples from Missing Count:", excludedItems);
+
 
             // Build HTML content
             let detailHTML = `
-                <h2 class="text-3xl font-bold mb-4 text-purple-200">${recipe.recipeName}</h2>
+                <h2 class="text-3xl font-bold mb-2 text-purple-200">${recipe.recipeName}</h2>
                 <p class="text-lg text-gray-300 mb-6">${recipe.description}</p>
                 
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-8">
+                <!-- Recipe Details Grid (Ingredients & Missing) -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
                     
                     <!-- Missing Items List -->
                     <div class="p-4 border border-red-500/50 rounded-xl bg-red-900/40">
@@ -339,7 +363,7 @@
                                 ${missingIngredients.map(item => `<li class="text-red-100 font-medium">${item}</li>`).join('')}
                                 </ul>`;
                 detailHTML += `<p class="text-gray-400 text-sm mt-3 italic">
-                                    (Excludes many common staples like oil, spices, and milk.)
+                                    (Excludes many common pantry staples.)
                                 </p>`;
             } else {
                 detailHTML += `<p class="text-emerald-300 font-medium">You have everything! Get cooking!</p>`;
@@ -350,7 +374,7 @@
                     <!-- All Required Ingredients -->
                     <div class="p-4 border border-gray-600 rounded-xl bg-gray-800/50">
                         <h3 class="text-xl font-semibold text-indigo-300 flex items-center mb-3 icon-container">
-                            <i data-lucide="chef-hat" class="w-5 h-5 mr-2"></i>
+                            <i data-lucide="list-checks" class="w-5 h-5 mr-2"></i>
                             Full Ingredient List
                         </h3>
                         <ul class="list-disc list-inside space-y-1 text-gray-300">
@@ -363,6 +387,21 @@
                             }).join('')}
                         </ul>
                     </div>
+                </div>
+
+                <!-- NEW: Instructions Panel -->
+                <div class="p-6 bg-gray-800 rounded-xl border border-purple-500/50">
+                    <h3 class="text-2xl font-semibold text-purple-300 flex items-center mb-4 icon-container">
+                        <i data-lucide="book-open-text" class="w-6 h-6 mr-2"></i>
+                        Step-by-Step Instructions
+                    </h3>
+                    <ol class="list-decimal list-inside space-y-4 text-gray-200 text-base">
+                        ${recipe.instructions.map(step => `
+                            <li class="pl-2 border-l-2 border-purple-600/50">
+                                <span class="font-medium text-gray-100">${step}</span>
+                            </li>
+                        `).join('')}
+                    </ol>
                 </div>`;
 
             DOM.detailsContainer.innerHTML = detailHTML;
@@ -425,11 +464,11 @@
                 // ADDED: Calorie preference query part
                 const caloriePreference = STATE.maxCalories ? ` and must not exceed ${STATE.maxCalories} calories per serving` : '';
                 
-                // UPDATED QUERY: Tighter constraint on missing items and stronger exclusion of staples
+                // UPDATED QUERY: Asking for instructions now
                 const userQuery = `Based on the following available ingredients: ${ingredientsList}. Generate 3 unique and creative recipe ideas${mealPreference}${caloriePreference}. 
                 **The recipes MUST only require ingredients that are in the available list.** At the absolute maximum, one major non-staple item can be missing, but prioritize recipes where 0 items are missing. 
-                **Crucially, exclude common kitchen staples (salt, pepper, oil, basic spices, flour, sugar, maple syrup, milk, yogurt, seeds, etc.) from the 'missing' determination.**
-                For each recipe, provide the name, a short description, and a complete list of all ingredients required (not just the available ones).`;
+                **Crucially, exclude common kitchen staples (salt, pepper, oil, basic spices, flour, sugar, maple syrup, milk, yogurt, seeds, soy sauce, lemon, ginger, etc.) from the 'missing' determination.**
+                For each recipe, provide the name, a short description, a complete list of all ingredients required (not just the available ones), AND the step-by-step instructions.`;
 
                 const payload = {
                     contents: [{ parts: [{ text: userQuery }] }],
@@ -441,14 +480,20 @@
                                 type: "OBJECT",
                                 properties: {
                                     "recipeName": { "type": "STRING" },
-                                    "description": { "type": "STRING" },
+                                    "description": { "type": "STRING" }, // FIXED: Changed "type: "STRING" }" to "type": "STRING" }"
                                     "requiredIngredients": {
                                         "type": "ARRAY",
                                         "items": { "type": "STRING" },
                                         "description": "A comprehensive list of ALL ingredients needed for the recipe."
+                                    },
+                                    // NEW PROPERTY: INSTRUCTIONS
+                                    "instructions": {
+                                        "type": "ARRAY",
+                                        "items": { "type": "STRING" },
+                                        "description": "Step-by-step cooking instructions."
                                     }
                                 },
-                                required: ["recipeName", "description", "requiredIngredients"]
+                                required: ["recipeName", "description", "requiredIngredients", "instructions"]
                             }
                         }
                     }
