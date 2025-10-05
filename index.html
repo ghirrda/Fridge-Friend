@@ -45,12 +45,13 @@
                 <!-- File Input (Now spans 2 columns on medium screens) -->
                 <div class="md:col-span-2">
                     <label class="block text-gray-400 text-sm font-medium mb-1" for="fileInput">
-                        Choose an image of your ingredients (fridge or pantry)
+                        Choose an image **or use your camera**
                     </label>
                     <input
                         type="file"
                         id="fileInput"
                         accept="image/*"
+                        capture="environment" <!-- **NEW: Suggests using the back camera on mobile** -->
                         class="block w-full text-sm text-gray-400
                                 file:mr-4 file:py-2 file:px-4
                                 file:rounded-full file:border-0
@@ -77,7 +78,7 @@
                     </select>
                 </div>
 
-                <!-- NEW: Max Calorie Input -->
+                <!-- Max Calorie Input -->
                 <div>
                     <label class="block text-gray-400 text-sm font-medium mb-1" for="maxCalorieInput">
                         Max Calories (Optional)
@@ -480,7 +481,7 @@
                                 type: "OBJECT",
                                 properties: {
                                     "recipeName": { "type": "STRING" },
-                                    "description": { "type": "STRING" }, // FIXED: Changed "type: "STRING" }" to "type": "STRING" }"
+                                    "description": { "type": "STRING" }, 
                                     "requiredIngredients": {
                                         "type": "ARRAY",
                                         "items": { "type": "STRING" },
